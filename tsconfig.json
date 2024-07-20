@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "experimentalDecorators": true,
+    "module": "CommonJS",
+    "rootDir": "./",
+    "moduleResolution": "node",
+    "paths": {
+      "@/*": ["./src/*"],
+    },
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "skipDefaultLibCheck": true,
+    "skipLibCheck": true
+  },
+  "ts-node": {
+    "ignore": ["(?:^|/)node_modules/"],
+    "require": ["tsconfig-paths/register"],
+  },
+  "include": ["src"]
+}
