@@ -9,12 +9,17 @@ const userIds = z
   .optional()
   .transform((str) => (str?.split(',') ?? []) as UserId[])
 
+const boolean = z.enum(['true', 'false']).transform((str) => str === 'true')
+
 export const environmentSchema = z.object({
   MODE: z.enum(['development', 'production']),
   TG_BOT_TOKEN: z.string(),
+  CATALOGUE_URL: z.string(),
   MONGODB_URL: z.string(),
   SERVER_PORT: z.string().transform(Number),
-  REACT_ON_EDIT: z.enum(['true', 'false']).transform((str) => str === 'true'),
+  ADD_CATALOGUE_BUTTON_ON_EDIT: boolean,
+  ADD_CODE_BUTTON_ON_EDIT: boolean,
+  DELETE_ALL_BUTTONS_ON_EDIT: boolean,
   CHAT_ID: z.string(),
   ADD_POST_BUTTON: userIds,
   GET_LIST: userIds,

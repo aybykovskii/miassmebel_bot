@@ -9,8 +9,12 @@ export const Commands = z.enum([
   'info',
   'codes_list',
   'mark_code_as_used',
-  'react_on_edit_on',
-  'react_on_edit_off',
+  'add_catalogue_button_on_edit_on',
+  'add_catalogue_button_on_edit_off',
+  'add_code_button_on_edit_on',
+  'add_code_button_on_edit_off',
+  'delete_all_buttons_on_edit_on',
+  'delete_all_buttons_on_edit_off',
 ])
 export type Command = z.infer<typeof Commands>
 export type TelegramCommand = `/${Command}`

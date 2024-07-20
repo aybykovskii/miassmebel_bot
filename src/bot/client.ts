@@ -106,29 +106,81 @@ const startBot = async () => {
         break
       }
 
-      case '/react_on_edit_on': {
+      case '/add_catalogue_button_on_edit_on': {
         const canAddPostButton = await bot.canAddPostButton(userId)
         if (!canAddPostButton) {
           await bot.send(message, 'restricted_error')
           break
         }
 
-        env.REACT_ON_EDIT = true
+        env.ADD_CATALOGUE_BUTTON_ON_EDIT = true
 
-        await bot.send(message, 'commands.react_on_edit_on.message')
+        await bot.send(message, 'commands.add_catalogue_button_on_edit_on.message')
         break
       }
 
-      case '/react_on_edit_off': {
+      case '/add_catalogue_button_on_edit_off': {
         const canAddPostButton = await bot.canAddPostButton(userId)
         if (!canAddPostButton) {
           await bot.send(message, 'restricted_error')
           break
         }
 
-        env.REACT_ON_EDIT = false
+        env.ADD_CATALOGUE_BUTTON_ON_EDIT = false
 
-        await bot.send(message, 'commands.react_on_edit_off.message')
+        await bot.send(message, 'commands.add_catalogue_button_on_edit_off.message')
+        break
+      }
+
+      case '/add_code_button_on_edit_on': {
+        const canAddPostButton = await bot.canAddPostButton(userId)
+        if (!canAddPostButton) {
+          await bot.send(message, 'restricted_error')
+          break
+        }
+
+        env.ADD_CODE_BUTTON_ON_EDIT = true
+
+        await bot.send(message, 'commands.add_code_button_on_edit_on.message')
+        break
+      }
+
+      case '/add_code_button_on_edit_off': {
+        const canAddPostButton = await bot.canAddPostButton(userId)
+        if (!canAddPostButton) {
+          await bot.send(message, 'restricted_error')
+          break
+        }
+
+        env.ADD_CODE_BUTTON_ON_EDIT = false
+
+        await bot.send(message, 'commands.add_code_button_on_edit_off.message')
+        break
+      }
+
+      case '/delete_all_buttons_on_edit_on': {
+        const canAddPostButton = await bot.canAddPostButton(userId)
+        if (!canAddPostButton) {
+          await bot.send(message, 'restricted_error')
+          break
+        }
+
+        env.DELETE_ALL_BUTTONS_ON_EDIT = true
+
+        await bot.send(message, 'commands.delete_all_buttons_on_edit_on.message')
+        break
+      }
+
+      case '/delete_all_buttons_on_edit_off': {
+        const canAddPostButton = await bot.canAddPostButton(userId)
+        if (!canAddPostButton) {
+          await bot.send(message, 'restricted_error')
+          break
+        }
+
+        env.DELETE_ALL_BUTTONS_ON_EDIT = false
+
+        await bot.send(message, 'commands.delete_all_buttons_on_edit_off.message')
         break
       }
 
@@ -140,22 +192,44 @@ const startBot = async () => {
   })
 
   bot.on('edited_channel_post_text', async (message) => {
-    if (!env.REACT_ON_EDIT) return
+    const {
+      ADD_CATALOGUE_BUTTON_ON_EDIT: addCatalogueButton,
+      ADD_CODE_BUTTON_ON_EDIT: addCodeButton,
+      DELETE_ALL_BUTTONS_ON_EDIT: deleteAllButtons,
+    } = env
 
-    const messageKeyboard = message.reply_markup?.inline_keyboard
-    const codeButton: InlineKeyboardButton = {
-      text: 'Получить код на скидку',
-      callback_data: GenerateCodeCD.fill({}),
-    }
+    const shouldReactOnEdit = addCatalogueButton || addCodeButton || deleteAllButtons
 
-    const keyboard: InlineKeyboardButton[][] = messageKeyboard
-      ? [[codeButton], ...messageKeyboard]
-      : [[codeButton]]
+    if (!shouldReactOnEdit) return
+
+    const catalogueButton: InlineKeyboardButton[][] = !addCatalogueButton
+      ? []
+      : [
+          [
+            {
+              text: t('buttons.catalogue'),
+              url: env.CATALOGUE_URL,
+            },
+          ],
+        ]
+
+    const codeButton: InlineKeyboardButton[][] = !addCodeButton
+      ? []
+      : [
+          [
+            {
+              text: t('buttons.get_code'),
+              callback_data: GenerateCodeCD.fill({}),
+            },
+          ],
+        ]
 
     bot.editMessageText(message.text || '', {
       chat_id: message.chat.id,
       message_id: message.message_id,
-      reply_markup: { inline_keyboard: keyboard },
+      reply_markup: deleteAllButtons
+        ? undefined
+        : { inline_keyboard: [...catalogueButton, ...codeButton] },
     })
   })
 
