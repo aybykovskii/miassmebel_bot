@@ -12,7 +12,7 @@ import { userIdSchema } from '../common/user/user'
 import { GenerateCodeCD } from '@/common/callbackData'
 import { Assertion } from '@/common/assertion'
 import { t } from '@/common/i18n'
-import { InlineKeyboardButton } from 'node-telegram-bot-api'
+import { InlineKeyboardButton, Message } from 'node-telegram-bot-api'
 
 const trpc = createTRPCProxyClient<RootRouter>({
   links: [
@@ -191,7 +191,7 @@ const startBot = async () => {
     }
   })
 
-  bot.on('edited_channel_post_text', async (message) => {
+  const addButtonsHandler = async (message: Message) => {
     const {
       ADD_CATALOGUE_BUTTON_ON_EDIT: addCatalogueButton,
       ADD_CODE_BUTTON_ON_EDIT: addCodeButton,
@@ -224,14 +224,20 @@ const startBot = async () => {
           ],
         ]
 
-    bot.editMessageText(message.text || '', {
-      chat_id: message.chat.id,
-      message_id: message.message_id,
-      reply_markup: deleteAllButtons
-        ? undefined
-        : { inline_keyboard: [...catalogueButton, ...codeButton] },
-    })
-  })
+    bot.editMessageReplyMarkup(
+      {
+        inline_keyboard: deleteAllButtons ? [] : [...catalogueButton, ...codeButton],
+      },
+      {
+        chat_id: message.chat.id,
+        message_id: message.message_id,
+      }
+    )
+  }
+
+  bot.on('channel_post', addButtonsHandler)
+  bot.on('edited_channel_post', addButtonsHandler)
+  bot.on('edited_channel_post_text', addButtonsHandler)
 
   bot.on('callback_query', async (query) => {
     try {
