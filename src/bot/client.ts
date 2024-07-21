@@ -6,7 +6,7 @@ import { fetch as undiciFetch } from 'undici'
 import { env } from '@/common/environment'
 import { RootRouter } from '@/server/server'
 import { Log } from '@/common/logger'
-import { userIdSchema } from '@/common/user'
+import { userIdSchema, usernameSchema } from '@/common/user'
 import { GenerateCodeCD } from '@/common/callbackData'
 import { Assertion } from '@/common/assertion'
 import { t } from '@/common/i18n'
@@ -104,7 +104,7 @@ const startBot = async () => {
           const { name, tg } = user
 
           codesList.push(
-            `${name} (${tg}) - ${code}${isUsed ? ' (использован)' : ''}${
+            `${name} (${tg || 'username не указан'}) - ${code}${isUsed ? ' (использован)' : ''}${
               isMember ? '' : ' (не подписан)'
             }`
           )
@@ -212,7 +212,7 @@ const startBot = async () => {
           await bot.ensureUserExist(
             userId,
             [firstName, lastName].filter(Boolean).join(' '),
-            `@${username}`
+            usernameSchema.parse(username ?? '')
           )
 
           const { code } =

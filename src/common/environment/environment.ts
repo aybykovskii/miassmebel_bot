@@ -2,12 +2,12 @@ import 'dotenv/config'
 import { z } from 'zod'
 
 import { Log } from '@/common/logger'
-import { Username } from '../user'
+import { usernameSchema } from '../user'
 
 export const usernames = z
   .string()
   .optional()
-  .transform((str) => (str?.split(',').map((s) => `@${s}`) ?? []) as Username[])
+  .transform((str) => str?.split(',').map((s) => usernameSchema.parse(s)) ?? [])
 
 const boolean = z.enum(['true', 'false']).transform((str) => str === 'true')
 

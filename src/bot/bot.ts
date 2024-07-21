@@ -185,7 +185,7 @@ export class Bot extends TelegramBot {
 
     Assertion.client(from, 'Message must have a sender')
 
-    const username = usernameSchema.parse(`@${from.username}`)
+    const username = usernameSchema.parse(from.username ?? '')
     const userId = userIdSchema.parse(chatId)
 
     const commandsToSet = Object.values(this.commands).filter(
@@ -230,7 +230,7 @@ export class Bot extends TelegramBot {
     }
   }
 
-  ensureUserExist = async (userId: UserId, name: string, tg: string) => {
+  ensureUserExist = async (userId: UserId, name: string, tg: Username) => {
     const result = await this.trpc.user.getById.query(userId)
 
     if (result) return
