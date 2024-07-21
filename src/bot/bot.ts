@@ -1,5 +1,6 @@
-import { createTRPCProxyClient } from '@trpc/client'
 import TelegramBot, { ChatMemberStatus, InlineKeyboardButton, Message } from 'node-telegram-bot-api'
+import { createTRPCProxyClient } from '@trpc/client'
+import { z } from 'zod'
 
 import { Assertion } from '@/common/assertion'
 import { AppError } from '@/common/error'
@@ -8,9 +9,7 @@ import { RootRouter } from '@/server/router'
 import { Extended } from '@/types'
 import { UserId, userIdSchema, Username, usernameSchema } from '@/common/user'
 import { env, environmentSchema } from '@/common/environment'
-import { z } from 'zod'
 import { GenerateCodeCD } from '@/common/callbackData'
-import { Log } from '@/common/logger'
 
 type ClientTRPC = ReturnType<typeof createTRPCProxyClient<RootRouter>>
 
@@ -192,8 +191,6 @@ export class Bot extends TelegramBot {
     const commandsToSet = Object.values(this.commands).filter(
       ({ validate }) => !validate || validate(username)
     )
-
-    Log.info('Commands to set: ', commandsToSet)
 
     this.setMyCommands(commandsToSet, { scope: { chat_id: chatId, type: 'chat' } })
 
