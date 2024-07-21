@@ -64,6 +64,16 @@ class UserService {
     return { success: true, data: result.toObject() }
   }
 
+  update = async (id: UserId, user: Partial<User>): PromiseResponse<User | null> => {
+    const result = await UserModel.findOneAndUpdate({ id }, user)
+
+    if (!result || result?.errors) {
+      return { success: false, error: result?.errors?.message ?? 'User not found' }
+    }
+
+    return { success: true, data: result.toObject() }
+  }
+
   delete = async (id: UserId): PromiseResponse<null> => {
     const result = await UserModel.findOneAndDelete({ id })
 

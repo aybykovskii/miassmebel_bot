@@ -6,7 +6,7 @@ import { fetch as undiciFetch } from 'undici'
 import { env } from '@/common/environment'
 import { RootRouter } from '@/server/server'
 import { Log } from '@/common/logger'
-import { userIdSchema, usernameSchema } from '@/common/user'
+import { userIdSchema } from '@/common/user'
 import { GenerateCodeCD } from '@/common/callbackData'
 import { Assertion } from '@/common/assertion'
 import { t } from '@/common/i18n'
@@ -29,7 +29,13 @@ bot.setChatMenuButton({ menu_button: { type: 'commands' } })
 
 const startBot = async () => {
   bot.on('message', async (message) => {
-    const { text, username, reply_to_message: replyToMessage } = await bot.getMessageInfo(message)
+    const {
+      text,
+      username,
+      reply_to_message: replyToMessage,
+      from,
+      userId,
+    } = await bot.getMessageInfo(message)
     const isReplyToMarkCodeAsUsed = replyToMessage?.text === t('commands.mark_code_as_used.message')
 
     if (isReplyToMarkCodeAsUsed) {
@@ -62,6 +68,17 @@ const startBot = async () => {
 
     switch (text as `/${z.infer<typeof bot.commandList>}`) {
       case '/start': {
+        const { first_name: firstName, last_name: lastName, username } = from
+        await bot.checkUserExistOrCreate(userId, firstName, lastName, username)
+
+        const shouldUpdateUser = await bot.checkShouldUpdateUser(userId)
+
+        if (shouldUpdateUser) {
+          await bot.trpc.user.update.query(
+            bot.getUserFormatData(userId, firstName, lastName, username)
+          )
+        }
+
         await bot.send(message, 'commands.start.message')
         break
       }
@@ -209,11 +226,7 @@ const startBot = async () => {
             return
           }
 
-          await bot.ensureUserExist(
-            userId,
-            [firstName, lastName].filter(Boolean).join(' '),
-            usernameSchema.parse(username ?? '')
-          )
+          await bot.checkUserExistOrCreate(userId, firstName, lastName, username)
 
           const { code } =
             (await trpc.code.getByUserId.query(userId)) ?? (await trpc.code.create.query(userId))

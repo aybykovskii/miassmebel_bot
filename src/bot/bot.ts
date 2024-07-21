@@ -230,12 +230,30 @@ export class Bot extends TelegramBot {
     }
   }
 
-  ensureUserExist = async (userId: UserId, name: string, tg: Username) => {
-    const result = await this.trpc.user.getById.query(userId)
+  getUserFormatData = (
+    id: UserId,
+    firstName: string | undefined,
+    lastName: string | undefined,
+    username: string | undefined
+  ) => ({
+    id,
+    name: [firstName, lastName].filter(Boolean).join(' '),
+    tg: usernameSchema.parse(username ?? ''),
+  })
 
-    if (result) return
+  checkUserExistOrCreate = async (
+    id: UserId,
+    firstName: string | undefined,
+    lastName: string | undefined,
+    username: string | undefined
+  ) => this.trpc.user.create.query(this.getUserFormatData(id, firstName, lastName, username))
 
-    await this.trpc.user.create.query({ id: userId, name, tg })
+  checkShouldUpdateUser = async (id: UserId) => {
+    const user = await this.trpc.user.getById.query(id)
+
+    if (!user) return false
+
+    return !user.name || !user.tg
   }
 
   checkChatMembership = async (

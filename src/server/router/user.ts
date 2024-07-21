@@ -14,6 +14,12 @@ export const userRouter = t.router({
     .input(userSchema.omit({ _id: true }))
     .output(userSchema)
     .query(async ({ input }) => {
+      const findResult = await userService.read(input.id)
+
+      if (findResult.success && findResult.data) {
+        return findResult.data
+      }
+
       const result = await userService.create(input)
 
       Assertion.server(result)
@@ -34,7 +40,7 @@ export const userRouter = t.router({
 
   getById: procedure
     .input(userIdSchema)
-    .output(userSchema.or(z.null()))
+    .output(userSchema.nullable())
     .query(async ({ input }) => {
       const result = await userService.read(input)
 
@@ -45,9 +51,20 @@ export const userRouter = t.router({
 
   getByUsername: procedure
     .input(z.string())
-    .output(userSchema.or(z.null()))
+    .output(userSchema.nullable())
     .query(async ({ input }) => {
       const result = await userService.readByUsername(input)
+
+      Assertion.server(result)
+
+      return result.data
+    }),
+
+  update: procedure
+    .input(userSchema.pick({ id: true }).and(userSchema.partial()))
+    .output(userSchema.nullable())
+    .query(async ({ input }) => {
+      const result = await userService.update(input.id, input)
 
       Assertion.server(result)
 
