@@ -6,7 +6,7 @@ import { fetch as undiciFetch } from 'undici'
 import { env } from '@/common/environment'
 import { RootRouter } from '@/server/server'
 import { Log } from '@/common/logger'
-import { userIdSchema, usernameSchema } from '@/common/user'
+import { userIdSchema } from '@/common/user'
 import { GenerateCodeCD } from '@/common/callbackData'
 import { Assertion } from '@/common/assertion'
 import { t } from '@/common/i18n'
@@ -29,17 +29,35 @@ bot.setChatMenuButton({ menu_button: { type: 'commands' } })
 
 const startBot = async () => {
   bot.on('message', async (message) => {
-    const { text, userId, username } = await bot.getMessageInfo(message)
+    const { text, username, reply_to_message: replyToMessage } = await bot.getMessageInfo(message)
+    const isReplyToMarkCodeAsUsed = replyToMessage?.text === t('commands.mark_code_as_used.message')
 
-    if (text.startsWith('@') && (await bot.canMarkCodeAsUsed(usernameSchema.parse(text)))) {
-      const user = await trpc.user.getByUsername.query(text)
+    if (isReplyToMarkCodeAsUsed) {
+      if (!bot.canMarkCodeAsUsed(username)) return
 
-      if (!user) return
+      const isUsername = text.startsWith('@')
 
-      const { code } = await trpc.code.markAsUsed.query(user.id)
+      if (isUsername) {
+        const user = await trpc.user.getByUsername.query(text)
 
-      await bot.send(message, 'commands.mark_code_as_used.success', { code, username: text })
-      return
+        if (!user) return
+
+        const { code } = await trpc.code.markAsUsed.query({ userId: user.id })
+
+        await bot.send(message, 'commands.mark_code_as_used.success', {
+          code,
+          username: `${text} `,
+        })
+        return
+      }
+
+      // Check if code is valid
+      if (/^\d{4}$/.test(text)) {
+        const { code } = await trpc.code.markAsUsed.query({ code: text })
+
+        await bot.send(message, 'commands.mark_code_as_used.success', { code, username: '' })
+        return
+      }
     }
 
     switch (text as `/${z.infer<typeof bot.commandList>}`) {
@@ -105,9 +123,7 @@ const startBot = async () => {
           break
         }
 
-        const { code } = await trpc.code.markAsUsed.query(userId)
-
-        await bot.send(message, 'commands.mark_code_as_used.message', { code })
+        await bot.send(message, 'commands.mark_code_as_used.message')
         break
       }
 
@@ -193,7 +209,11 @@ const startBot = async () => {
             return
           }
 
-          await bot.ensureUserExist(userId, `${firstName} ${lastName}`, `@${username}`)
+          await bot.ensureUserExist(
+            userId,
+            [firstName, lastName].filter(Boolean).join(' '),
+            `@${username}`
+          )
 
           const { code } =
             (await trpc.code.getByUserId.query(userId)) ?? (await trpc.code.create.query(userId))

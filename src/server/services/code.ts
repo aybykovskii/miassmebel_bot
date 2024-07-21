@@ -55,6 +55,16 @@ class CodeService {
     return { success: true, data: result.toObject() }
   }
 
+  readByCode = async (code: string): PromiseResponse<Code | null> => {
+    const result = await CodeModel.findOne({ code })
+
+    if (!result) {
+      return { success: true, data: null }
+    }
+
+    return { success: true, data: result.toObject() }
+  }
+
   update = async (userId: UserId, code: Partial<Code>): PromiseResponse<Code> => {
     const result = await CodeModel.findOneAndUpdate({ userId }, code)
 

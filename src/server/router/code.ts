@@ -1,7 +1,7 @@
 import { initTRPC } from '@trpc/server'
 import { z } from 'zod'
 
-import { userIdSchema } from '@/common/user'
+import { UserId, userIdSchema } from '@/common/user'
 import { Assertion } from '@/common/assertion'
 
 import { codeService } from '../services'
@@ -45,10 +45,20 @@ export const codeRouter = t.router({
     }),
 
   markAsUsed: procedure
-    .input(userIdSchema)
+    .input(z.object({ userId: userIdSchema.optional(), code: z.string().optional() }))
     .output(codeSchema)
     .query(async ({ input }) => {
-      const result = await codeService.update(input, { isUsed: true })
+      let userId = input.userId ? input.userId : null
+
+      if (input.code) {
+        const result = await codeService.readByCode(input.code)
+
+        if (result.success && result.data) {
+          userId = result.data.userId
+        }
+      }
+
+      const result = await codeService.update(userId as UserId, { isUsed: true })
 
       Assertion.server(result)
 
