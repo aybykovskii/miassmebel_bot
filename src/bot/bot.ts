@@ -6,22 +6,178 @@ import { AppError } from '@/common/error'
 import { Phrase, t } from '@/common/i18n'
 import { RootRouter } from '@/server/router'
 import { Extended } from '@/types'
-import { UserId } from '@/common/user'
-import { userIdSchema } from '../common/user/user'
-import { env } from '@/common/environment'
+import { UserId, userIdSchema, Username, usernameSchema } from '@/common/user'
+import { env, environmentSchema } from '@/common/environment'
+import { z } from 'zod'
+import { GenerateCodeCD } from '@/common/callbackData'
+import { Log } from '@/common/logger'
 
 type ClientTRPC = ReturnType<typeof createTRPCProxyClient<RootRouter>>
 
+const envFieldsToChange = environmentSchema.pick({
+  ADD_WEBSITES_BUTTONS: true,
+  ADD_CATALOGUE_BUTTON: true,
+  ADD_CODE_BUTTON: true,
+  DELETE_ALL_BUTTONS: true,
+})
+
+export type EnvFieldsToChange = keyof z.infer<typeof envFieldsToChange>
+
+const commandsList = z.enum([
+  'start',
+  'info',
+  'help',
+  'codes_list',
+  'mark_code_as_used',
+  'add_websites_buttons',
+  'add_websites_buttons_off',
+  'add_catalogue_button',
+  'add_catalogue_button_off',
+  'add_code_button',
+  'add_code_button_off',
+  'delete_all_buttons',
+  'delete_all_buttons_off',
+])
+
+type CommandInfo = {
+  validate: ((username: Username) => boolean) | null
+  envField: EnvFieldsToChange | null
+  description: string
+  command: `/${z.infer<typeof commandsList>}`
+}
+
+const envButtonsFields = environmentSchema.pick({
+  ADD_WEBSITES_BUTTONS: true,
+  ADD_CATALOGUE_BUTTON: true,
+  ADD_CODE_BUTTON: true,
+  DELETE_ALL_BUTTONS: true,
+})
+
+type EnvButtonsFields = keyof z.infer<typeof envButtonsFields>
+
+type ButtonInfo = {
+  envField: EnvButtonsFields
+  buttons: InlineKeyboardButton[]
+}
+
 export class Bot extends TelegramBot {
   trpc: ClientTRPC
+
+  commandList = commandsList
+
+  commands: Record<z.infer<typeof this.commandList>, CommandInfo>
+
+  buttons: ButtonInfo[] = [
+    {
+      envField: 'ADD_WEBSITES_BUTTONS',
+      buttons: [
+        {
+          text: t('buttons.website1'),
+          url: env.WEBSITE1_URL,
+        },
+        {
+          text: t('buttons.website2'),
+          url: env.WEBSITE2_URL,
+        },
+      ],
+    },
+    {
+      envField: 'ADD_CATALOGUE_BUTTON',
+      buttons: [
+        {
+          text: t('buttons.catalogue'),
+          url: env.CATALOGUE_URL,
+        },
+      ],
+    },
+    {
+      envField: 'ADD_CODE_BUTTON',
+      buttons: [
+        {
+          text: t('buttons.get_code'),
+          callback_data: GenerateCodeCD.fill({}),
+        },
+      ],
+    },
+  ]
 
   constructor(token: string, trpc: ClientTRPC) {
     super(token, { polling: true })
 
     this.trpc = trpc
+
+    type CommandText = z.infer<typeof this.commandList>
+
+    const commands = {
+      start: {
+        validate: null,
+        envField: null,
+      },
+      info: {
+        validate: null,
+        envField: null,
+      },
+      help: {
+        validate: null,
+        envField: null,
+      },
+      codes_list: {
+        validate: this.canGetCodesList,
+        envField: null,
+      },
+      mark_code_as_used: {
+        validate: this.canMarkCodeAsUsed,
+        envField: null,
+      },
+      add_websites_buttons: {
+        validate: this.canChangePostButtons,
+        envField: 'ADD_WEBSITES_BUTTONS',
+      },
+      add_websites_buttons_off: {
+        validate: this.canChangePostButtons,
+        envField: 'ADD_WEBSITES_BUTTONS',
+      },
+      add_catalogue_button: {
+        validate: this.canChangePostButtons,
+        envField: 'ADD_CATALOGUE_BUTTON',
+      },
+      add_catalogue_button_off: {
+        validate: this.canChangePostButtons,
+        envField: 'ADD_CATALOGUE_BUTTON',
+      },
+      add_code_button: {
+        validate: this.canChangePostButtons,
+        envField: 'ADD_CODE_BUTTON',
+      },
+      add_code_button_off: {
+        validate: this.canChangePostButtons,
+        envField: 'ADD_CODE_BUTTON',
+      },
+      delete_all_buttons: {
+        validate: this.canChangePostButtons,
+        envField: 'DELETE_ALL_BUTTONS',
+      },
+      delete_all_buttons_off: {
+        validate: this.canChangePostButtons,
+        envField: 'DELETE_ALL_BUTTONS',
+      },
+    } satisfies Record<CommandText, Pick<CommandInfo, 'validate' | 'envField'>>
+
+    this.commands = Object.entries(commands).reduce(
+      (acc, [command, info]) => {
+        const commandText = command as CommandText
+        acc[commandText] = {
+          ...info,
+          description: t(`commands.${commandText}.description`),
+          command: `/${commandText}`,
+        }
+        return acc
+      },
+      {} as Record<CommandText, CommandInfo>
+    )
   }
 
-  getMessageInfo = async <T extends string = string>(msg: Message) => {
+  getMessageInfo = async (msg: Message) => {
     const {
       text,
       from,
@@ -30,7 +186,24 @@ export class Bot extends TelegramBot {
 
     Assertion.client(from, 'Message must have a sender')
 
-    return { ...msg, from, userId: userIdSchema.parse(chatId), text: text as Extended<T> }
+    const username = usernameSchema.parse(`@${from.username}`)
+    const userId = userIdSchema.parse(chatId)
+
+    const commandsToSet = Object.values(this.commands).filter(
+      ({ validate }) => !validate || validate(username)
+    )
+
+    Log.info('Commands to set: ', commandsToSet)
+
+    this.setMyCommands(commandsToSet, { scope: { chat_id: chatId, type: 'chat' } })
+
+    return {
+      ...msg,
+      from,
+      userId,
+      username,
+      text: text as Extended<`/${z.infer<typeof this.commandList>}`>,
+    }
   }
 
   send = async (
@@ -70,7 +243,7 @@ export class Bot extends TelegramBot {
 
   checkChatMembership = async (
     chatId: string,
-    { userId, username }: { userId?: UserId; username?: string }
+    { userId, username }: { userId?: UserId; username?: Username }
   ) => {
     const id = username
       ? await this.trpc.user.getByUsername.query(username).then((data) => data?.id)
@@ -87,9 +260,9 @@ export class Bot extends TelegramBot {
     return { isMember: status !== 'left', isAdmin: adminRoles.includes(status) }
   }
 
-  canMarkCodeAsUsed = async (userId: UserId) => env.MARK_AS_USED.includes(userId)
+  canMarkCodeAsUsed = (username: Username) => env.MARK_AS_USED_USERS.includes(username)
 
-  canAddPostButton = async (userId: UserId) => env.ADD_POST_BUTTON.includes(userId)
+  canChangePostButtons = (username: Username) => env.CHANGE_POST_BUTTONS_USERS.includes(username)
 
-  canGetCodesList = async (userId: UserId) => env.GET_LIST.includes(userId)
+  canGetCodesList = (username: Username) => env.GET_LIST_USERS.includes(username)
 }

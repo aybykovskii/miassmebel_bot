@@ -1,18 +1,18 @@
-import { fetch as undiciFetch } from 'undici'
-import { FetchEsque } from '@trpc/client/dist/internals/types'
+import { Message } from 'node-telegram-bot-api'
 import { createTRPCProxyClient, httpBatchLink } from '@trpc/client'
+import { FetchEsque } from '@trpc/client/dist/internals/types'
+import { fetch as undiciFetch } from 'undici'
 
 import { env } from '@/common/environment'
 import { RootRouter } from '@/server/server'
 import { Log } from '@/common/logger'
-import { commands, TelegramCommand } from '@/common/commands'
-
-import { Bot } from './bot'
-import { userIdSchema } from '../common/user/user'
+import { userIdSchema, usernameSchema } from '@/common/user'
 import { GenerateCodeCD } from '@/common/callbackData'
 import { Assertion } from '@/common/assertion'
 import { t } from '@/common/i18n'
-import { InlineKeyboardButton, Message } from 'node-telegram-bot-api'
+
+import { Bot } from './bot'
+import { z } from 'zod'
 
 const trpc = createTRPCProxyClient<RootRouter>({
   links: [
@@ -28,12 +28,10 @@ const bot = new Bot(env.TG_BOT_TOKEN, trpc)
 bot.setChatMenuButton({ menu_button: { type: 'commands' } })
 
 const startBot = async () => {
-  bot.setMyCommands(commands)
-
   bot.on('message', async (message) => {
-    const { text, userId } = await bot.getMessageInfo<TelegramCommand>(message)
+    const { text, userId, username } = await bot.getMessageInfo(message)
 
-    if (text.startsWith('@') && (await bot.canMarkCodeAsUsed(userId))) {
+    if (text.startsWith('@') && (await bot.canMarkCodeAsUsed(usernameSchema.parse(text)))) {
       const user = await trpc.user.getByUsername.query(text)
 
       if (!user) return
@@ -44,15 +42,9 @@ const startBot = async () => {
       return
     }
 
-    switch (text) {
+    switch (text as `/${z.infer<typeof bot.commandList>}`) {
       case '/start': {
-        bot.setMyCommands(commands)
         await bot.send(message, 'commands.start.message')
-        break
-      }
-
-      case '/id': {
-        await bot.send(message, 'commands.id.message', { id: userId })
         break
       }
 
@@ -61,8 +53,21 @@ const startBot = async () => {
         break
       }
 
+      case '/help': {
+        const availableCommands = Object.values(bot.commands).filter(
+          ({ validate }) => !validate || validate(username)
+        )
+
+        const commandsString = availableCommands
+          .map(({ command, description }) => `${command} - ${description}`)
+          .join('\n')
+
+        await bot.send(message, 'commands.help.message', { commands: commandsString })
+        break
+      }
+
       case '/codes_list': {
-        const canGetList = await bot.canGetCodesList(userId)
+        const canGetList = await bot.canGetCodesList(username)
         if (!canGetList) {
           await bot.send(message, 'restricted_error')
           break
@@ -94,7 +99,7 @@ const startBot = async () => {
       }
 
       case '/mark_code_as_used': {
-        const canMarkCodeAsUsed = await bot.canMarkCodeAsUsed(userId)
+        const canMarkCodeAsUsed = await bot.canMarkCodeAsUsed(username)
         if (!canMarkCodeAsUsed) {
           await bot.send(message, 'restricted_error')
           break
@@ -106,81 +111,29 @@ const startBot = async () => {
         break
       }
 
-      case '/add_catalogue_button_on_edit_on': {
-        const canAddPostButton = await bot.canAddPostButton(userId)
-        if (!canAddPostButton) {
+      case '/add_websites_buttons':
+      case '/add_websites_buttons_off':
+      case '/add_catalogue_button':
+      case '/add_catalogue_button_off':
+      case '/add_code_button':
+      case '/add_code_button_off':
+      case '/delete_all_buttons':
+      case '/delete_all_buttons_off': {
+        const commandText = text.substring(1) as z.infer<typeof bot.commandList>
+        const { validate, envField } = bot.commands[commandText]
+        const isValidUser = validate?.(username)
+
+        if (!isValidUser || !envField) {
           await bot.send(message, 'restricted_error')
           break
         }
 
-        env.ADD_CATALOGUE_BUTTON_ON_EDIT = true
+        const isOff = commandText.endsWith('_off')
 
-        await bot.send(message, 'commands.add_catalogue_button_on_edit_on.message')
-        break
-      }
+        env[envField] = !isOff
 
-      case '/add_catalogue_button_on_edit_off': {
-        const canAddPostButton = await bot.canAddPostButton(userId)
-        if (!canAddPostButton) {
-          await bot.send(message, 'restricted_error')
-          break
-        }
+        await bot.send(message, `commands.${commandText}.message`)
 
-        env.ADD_CATALOGUE_BUTTON_ON_EDIT = false
-
-        await bot.send(message, 'commands.add_catalogue_button_on_edit_off.message')
-        break
-      }
-
-      case '/add_code_button_on_edit_on': {
-        const canAddPostButton = await bot.canAddPostButton(userId)
-        if (!canAddPostButton) {
-          await bot.send(message, 'restricted_error')
-          break
-        }
-
-        env.ADD_CODE_BUTTON_ON_EDIT = true
-
-        await bot.send(message, 'commands.add_code_button_on_edit_on.message')
-        break
-      }
-
-      case '/add_code_button_on_edit_off': {
-        const canAddPostButton = await bot.canAddPostButton(userId)
-        if (!canAddPostButton) {
-          await bot.send(message, 'restricted_error')
-          break
-        }
-
-        env.ADD_CODE_BUTTON_ON_EDIT = false
-
-        await bot.send(message, 'commands.add_code_button_on_edit_off.message')
-        break
-      }
-
-      case '/delete_all_buttons_on_edit_on': {
-        const canAddPostButton = await bot.canAddPostButton(userId)
-        if (!canAddPostButton) {
-          await bot.send(message, 'restricted_error')
-          break
-        }
-
-        env.DELETE_ALL_BUTTONS_ON_EDIT = true
-
-        await bot.send(message, 'commands.delete_all_buttons_on_edit_on.message')
-        break
-      }
-
-      case '/delete_all_buttons_on_edit_off': {
-        const canAddPostButton = await bot.canAddPostButton(userId)
-        if (!canAddPostButton) {
-          await bot.send(message, 'restricted_error')
-          break
-        }
-
-        env.DELETE_ALL_BUTTONS_ON_EDIT = false
-
-        await bot.send(message, 'commands.delete_all_buttons_on_edit_off.message')
         break
       }
 
@@ -192,41 +145,17 @@ const startBot = async () => {
   })
 
   const addButtonsHandler = async (message: Message) => {
-    const {
-      ADD_CATALOGUE_BUTTON_ON_EDIT: addCatalogueButton,
-      ADD_CODE_BUTTON_ON_EDIT: addCodeButton,
-      DELETE_ALL_BUTTONS_ON_EDIT: deleteAllButtons,
-    } = env
+    const buttons = bot.buttons
+    const shouldDeleteAllButtons = env.DELETE_ALL_BUTTONS
+    const buttonsToAdd = buttons.filter(({ envField }) => env[envField])
 
-    const shouldReactOnEdit = addCatalogueButton || addCodeButton || deleteAllButtons
+    const shouldReactOnEdit = shouldDeleteAllButtons || buttonsToAdd.length
 
     if (!shouldReactOnEdit) return
 
-    const catalogueButton: InlineKeyboardButton[][] = !addCatalogueButton
-      ? []
-      : [
-          [
-            {
-              text: t('buttons.catalogue'),
-              url: env.CATALOGUE_URL,
-            },
-          ],
-        ]
-
-    const codeButton: InlineKeyboardButton[][] = !addCodeButton
-      ? []
-      : [
-          [
-            {
-              text: t('buttons.get_code'),
-              callback_data: GenerateCodeCD.fill({}),
-            },
-          ],
-        ]
-
     bot.editMessageReplyMarkup(
       {
-        inline_keyboard: deleteAllButtons ? [] : [...catalogueButton, ...codeButton],
+        inline_keyboard: shouldDeleteAllButtons ? [] : buttonsToAdd.map(({ buttons }) => buttons),
       },
       {
         chat_id: message.chat.id,

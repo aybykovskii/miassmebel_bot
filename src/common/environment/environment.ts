@@ -2,28 +2,31 @@ import 'dotenv/config'
 import { z } from 'zod'
 
 import { Log } from '@/common/logger'
-import { UserId } from '../user'
+import { Username } from '../user'
 
-const userIds = z
+export const usernames = z
   .string()
   .optional()
-  .transform((str) => (str?.split(',') ?? []) as UserId[])
+  .transform((str) => (str?.split(',').map((s) => `@${s}`) ?? []) as Username[])
 
 const boolean = z.enum(['true', 'false']).transform((str) => str === 'true')
 
 export const environmentSchema = z.object({
   MODE: z.enum(['development', 'production']),
   TG_BOT_TOKEN: z.string(),
-  CATALOGUE_URL: z.string(),
   MONGODB_URL: z.string(),
   SERVER_PORT: z.string().transform(Number),
-  ADD_CATALOGUE_BUTTON_ON_EDIT: boolean,
-  ADD_CODE_BUTTON_ON_EDIT: boolean,
-  DELETE_ALL_BUTTONS_ON_EDIT: boolean,
   CHAT_ID: z.string(),
-  ADD_POST_BUTTON: userIds,
-  GET_LIST: userIds,
-  MARK_AS_USED: userIds,
+  CATALOGUE_URL: z.string(),
+  WEBSITE1_URL: z.string(),
+  WEBSITE2_URL: z.string(),
+  ADD_WEBSITES_BUTTONS: boolean,
+  ADD_CATALOGUE_BUTTON: boolean,
+  ADD_CODE_BUTTON: boolean,
+  DELETE_ALL_BUTTONS: boolean,
+  CHANGE_POST_BUTTONS_USERS: usernames,
+  GET_LIST_USERS: usernames,
+  MARK_AS_USED_USERS: usernames,
 })
 
 export type EnvironmentSchema = z.infer<typeof environmentSchema>
