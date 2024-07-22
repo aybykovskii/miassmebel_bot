@@ -176,6 +176,12 @@ export class Bot extends TelegramBot {
 		)
 	}
 
+	canMarkCodeAsUsed = (username: Username) => env.MARK_AS_USED_USERS.includes(username)
+
+	canChangePostButtons = (username: Username) => env.CHANGE_POST_BUTTONS_USERS.includes(username)
+
+	canGetCodesList = (username: Username) => env.GET_LIST_USERS.includes(username)
+
 	getMessageInfo = async (msg: Message) => {
 		const {
 			text,
@@ -274,10 +280,4 @@ export class Bot extends TelegramBot {
 
 		return { isMember: status !== 'left', isAdmin: adminRoles.includes(status) }
 	}
-
-	canMarkCodeAsUsed = (username: Username) => env.MARK_AS_USED_USERS.includes(username)
-
-	canChangePostButtons = (username: Username) => env.CHANGE_POST_BUTTONS_USERS.includes(username)
-
-	canGetCodesList = (username: Username) => env.GET_LIST_USERS.includes(username)
 }
