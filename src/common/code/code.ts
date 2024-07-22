@@ -1,11 +1,12 @@
 import { z } from 'zod'
-import { MongooseBaseSchema } from '../mongoose'
-import { userSchema } from '../user'
+
+import { MongooseBaseSchema } from '@/common/mongoose'
+import { userSchema } from '@/common/user'
 
 export const codeSchema = MongooseBaseSchema.extend({
-  userId: userSchema.shape.id,
-  code: z.string(),
-  isUsed: z.boolean().optional(),
+	userId: userSchema.shape.id,
+	code: z.string(),
+	isUsed: z.boolean().optional(),
 })
 
 export type Code = z.infer<typeof codeSchema>

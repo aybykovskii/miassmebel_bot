@@ -1,18 +1,19 @@
 import { z } from 'zod'
+
 import { MongooseBaseSchema } from '../mongoose'
 
 export const userIdSchema = z.coerce.string().brand<'userId'>()
 export const usernameSchema = z
-  .string()
-  .length(0)
-  .or(z.string())
-  .transform((str) => (str.length && !str.startsWith('@') ? `@${str}` : str))
-  .brand<'username'>()
+	.string()
+	.length(0)
+	.or(z.string())
+	.transform((str) => (str.length && !str.startsWith('@') ? `@${str}` : str))
+	.brand<'username'>()
 
 export const userSchema = MongooseBaseSchema.extend({
-  id: userIdSchema,
-  name: z.string(),
-  tg: usernameSchema,
+	id: userIdSchema,
+	name: z.string(),
+	tg: usernameSchema,
 })
 
 export const userChatMember = z.enum(['creator', 'administrator', 'member', 'left'])
