@@ -48,10 +48,15 @@ const startBot = async () => {
 
 				if (!user) return
 
-				const { code } = await trpc.code.markAsUsed.query({ userId: user.id })
+				const result = await trpc.code.markAsUsed.query({ userId: user.id })
+
+				if (!result) {
+					await bot.send(message, 'commands.mark_code_as_used.failed')
+					return
+				}
 
 				await bot.send(message, 'commands.mark_code_as_used.success', {
-					code,
+					code: result.code,
 					username: `${text} `,
 				})
 				return
@@ -59,9 +64,17 @@ const startBot = async () => {
 
 			// Check if code is valid
 			if (/^\d{4}$/.test(text)) {
-				const { code } = await trpc.code.markAsUsed.query({ code: text })
+				const result = await trpc.code.markAsUsed.query({ code: text })
 
-				await bot.send(message, 'commands.mark_code_as_used.success', { code, username: '' })
+				if (!result) {
+					await bot.send(message, 'commands.mark_code_as_used.failed')
+					return
+				}
+
+				await bot.send(message, 'commands.mark_code_as_used.success', {
+					code: result.code,
+					username: '',
+				})
 				return
 			}
 		}

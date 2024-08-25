@@ -46,7 +46,7 @@ export const codeRouter = t.router({
 
 	markAsUsed: procedure
 		.input(z.object({ userId: userIdSchema.optional(), code: z.string().optional() }))
-		.output(codeSchema)
+		.output(codeSchema.nullable())
 		.query(async ({ input }) => {
 			let userId = input.userId ? input.userId : null
 
@@ -55,6 +55,8 @@ export const codeRouter = t.router({
 
 				if (result.success && result.data) {
 					userId = result.data.userId
+				} else {
+					return null
 				}
 			}
 
